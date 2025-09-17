@@ -1,6 +1,10 @@
 import { WebSocketServer, WebSocket } from "ws";
 import { IncomingMessage } from "http";
 import { Server } from "http";
+import session from "express-session";
+import connectPg from "connect-pg-simple";
+import { parse as parseCookie } from "cookie";
+import { storage } from "./storage";
 
 interface AuthenticatedWebSocket extends WebSocket {
   userId?: string;
@@ -11,8 +15,18 @@ interface AuthenticatedWebSocket extends WebSocket {
 class WebSocketManager {
   private wss: WebSocketServer;
   private connections: Map<string, Set<AuthenticatedWebSocket>> = new Map();
+  private sessionStore: any;
 
   constructor(server: Server) {
+    // Initialize session store for WebSocket authentication
+    const pgStore = connectPg(session);
+    this.sessionStore = new pgStore({
+      conString: process.env.DATABASE_URL,
+      createTableIfMissing: false,
+      ttl: 7 * 24 * 60 * 60 * 1000, // 1 week
+      tableName: "sessions",
+    });
+
     this.wss = new WebSocketServer({ 
       server,
       path: '/api/ws',
@@ -22,46 +36,130 @@ class WebSocketManager {
     this.wss.on('connection', this.handleConnection.bind(this));
   }
 
-  private verifyClient(info: { origin: string; secure: boolean; req: IncomingMessage }) {
-    // Basic origin verification - in production, you might want more sophisticated checks
-    return true;
+  private verifyClient(info: { origin: string; secure: boolean; req: IncomingMessage }): boolean {
+    try {
+      // Validate origin/host for security
+      const allowedOrigins = process.env.REPLIT_DOMAINS?.split(',').map(domain => 
+        [`https://${domain}`, `http://${domain}`]
+      ).flat() || [];
+      
+      if (info.origin && !allowedOrigins.includes(info.origin)) {
+        console.warn(`WebSocket connection denied: invalid origin ${info.origin}`);
+        return false;
+      }
+
+      // Extract session ID from cookies for later validation
+      const cookies = parseCookie(info.req.headers.cookie || '');
+      const sessionId = cookies['connect.sid'];
+      
+      if (!sessionId) {
+        console.warn('WebSocket connection denied: no session cookie');
+        return false;
+      }
+
+      // Store session ID for async validation in connection handler
+      (info.req as any).sessionId = sessionId;
+      return true;
+    } catch (error) {
+      console.error('WebSocket verifyClient error:', error);
+      return false;
+    }
   }
 
-  private handleConnection(ws: AuthenticatedWebSocket, request: IncomingMessage) {
-    console.log('New WebSocket connection');
-    
-    ws.on('message', (data: Buffer) => {
-      try {
-        const message = JSON.parse(data.toString());
-        this.handleMessage(ws, message);
-      } catch (error) {
-        console.error('Invalid WebSocket message:', error);
-        ws.close(1003, 'Invalid message format');
+  private async handleConnection(ws: AuthenticatedWebSocket, request: IncomingMessage) {
+    try {
+      // Get session ID from request (set in verifyClient)
+      const sessionId = (request as any).sessionId;
+      if (!sessionId) {
+        console.warn('WebSocket connection denied: no session ID');
+        ws.close(1008, 'Authentication required');
+        return;
       }
-    });
 
-    ws.on('close', () => {
-      this.removeConnection(ws);
-    });
+      // Decode session ID (remove 's:' prefix and signature)
+      const decodedSessionId = sessionId.startsWith('s:') ? 
+        sessionId.slice(2).split('.')[0] : sessionId;
 
-    ws.on('error', (error) => {
-      console.error('WebSocket error:', error);
-      this.removeConnection(ws);
-    });
+      // Validate session asynchronously
+      const sessionData = await new Promise<any>((resolve, reject) => {
+        this.sessionStore.get(decodedSessionId, (err: any, data: any) => {
+          if (err || !data) {
+            reject(new Error('Invalid session'));
+            return;
+          }
+          resolve(data);
+        });
+      });
 
-    // Send initial connection confirmation
-    this.sendMessage(ws, {
-      type: 'connection',
-      status: 'connected',
-      timestamp: new Date().toISOString()
-    });
+      // Check if user is authenticated in session
+      if (!sessionData.passport?.user?.claims) {
+        console.warn('WebSocket connection denied: user not authenticated in session');
+        ws.close(1008, 'Authentication required');
+        return;
+      }
+
+      const userClaims = sessionData.passport.user.claims;
+      const userId = userClaims.sub;
+      
+      // Get user from database to get organization info
+      const user = await storage.getUser(userId);
+      if (!user || !user.organizationId) {
+        console.warn('WebSocket connection denied: user not found or no organization');
+        ws.close(1008, 'User not found or not associated with organization');
+        return;
+      }
+
+      // Set authenticated user data from server-side validation
+      ws.userId = userId;
+      ws.organizationId = user.organizationId;
+      ws.isAuthenticated = true;
+
+      console.log(`Authenticated WebSocket connection for user ${userId} in org ${user.organizationId}`);
+      
+      // Add to connections immediately since authentication is server-side
+      this.addConnection(ws);
+
+      ws.on('message', (data: Buffer) => {
+        try {
+          const message = JSON.parse(data.toString());
+          this.handleMessage(ws, message);
+        } catch (error) {
+          console.error('Invalid WebSocket message:', error);
+          ws.close(1003, 'Invalid message format');
+        }
+      });
+
+      ws.on('close', () => {
+        this.removeConnection(ws);
+      });
+
+      ws.on('error', (error) => {
+        console.error('WebSocket error:', error);
+        this.removeConnection(ws);
+      });
+
+      // Send initial connection confirmation with authenticated status
+      this.sendMessage(ws, {
+        type: 'connection',
+        status: 'authenticated',
+        userId: userId,
+        organizationId: user.organizationId,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('WebSocket connection setup error:', error);
+      ws.close(1011, 'Server error during authentication');
+    }
   }
 
   private handleMessage(ws: AuthenticatedWebSocket, message: any) {
+    // Only allow messages from authenticated connections
+    if (!ws.isAuthenticated) {
+      ws.close(1008, 'Authentication required');
+      return;
+    }
+
     switch (message.type) {
-      case 'auth':
-        this.handleAuth(ws, message);
-        break;
       case 'ping':
         this.sendMessage(ws, { type: 'pong', timestamp: new Date().toISOString() });
         break;
@@ -70,27 +168,6 @@ class WebSocketManager {
     }
   }
 
-  private handleAuth(ws: AuthenticatedWebSocket, message: any) {
-    const { userId, organizationId } = message;
-    
-    if (!userId || !organizationId) {
-      ws.close(1008, 'Authentication required');
-      return;
-    }
-
-    ws.userId = userId;
-    ws.organizationId = organizationId;
-    ws.isAuthenticated = true;
-
-    this.addConnection(ws);
-
-    this.sendMessage(ws, {
-      type: 'auth',
-      status: 'authenticated',
-      userId,
-      organizationId
-    });
-  }
 
   private addConnection(ws: AuthenticatedWebSocket) {
     if (!ws.userId || !ws.organizationId) return;

@@ -214,6 +214,12 @@ export async function registerRoutes(app: Express): Promise<void> {
         }
 
         const task = await storage.createTask(taskData);
+        
+        // Trigger notification for task assignment if task is assigned to someone
+        if (taskData.assigneeId && taskData.assigneeId !== taskData.creatorId) {
+          await notificationService.notifyTaskAssigned(task.id, taskData.assigneeId, taskData.creatorId, req.organizationId);
+        }
+        
         res.json(task);
       } catch (error) {
         if (error instanceof z.ZodError) {
@@ -286,6 +292,22 @@ export async function registerRoutes(app: Express): Promise<void> {
         });
 
         const updatedTask = await storage.updateTask(taskId, updateData);
+        
+        // Trigger notifications for task changes
+        const currentUserId = req.user.claims.sub;
+        
+        // Notify if task assignee changed
+        if (updates.assigneeId !== undefined && updates.assigneeId !== task.assigneeId) {
+          if (updates.assigneeId && updates.assigneeId !== currentUserId) {
+            await notificationService.notifyTaskAssigned(taskId, updates.assigneeId, currentUserId, req.organizationId);
+          }
+        }
+        
+        // Notify if task status changed
+        if (updates.status && updates.status !== task.status) {
+          await notificationService.notifyTaskStatusChanged(taskId, updates.status, currentUserId, req.organizationId);
+        }
+        
         res.json(updatedTask);
       } catch (error) {
         if (error instanceof z.ZodError) {

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useWebSocket } from "@/hooks/useWebSocket";
 import { useLocation } from "wouter";
 import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
@@ -11,6 +12,7 @@ import OrganizationSetup from "@/components/organization/organization-setup";
 export default function Dashboard() {
   const { isAuthenticated, isLoading, user } = useAuth();
   const { toast } = useToast();
+  const { isConnected: wsConnected, lastMessage } = useWebSocket();
   const [location] = useLocation();
   const [showOrganizationSetup, setShowOrganizationSetup] = useState(false);
 
@@ -35,6 +37,14 @@ export default function Dashboard() {
       setShowOrganizationSetup(true);
     }
   }, [user]);
+
+  // Debug: Log WebSocket connection status
+  useEffect(() => {
+    console.log('WebSocket connection status:', wsConnected);
+    if (lastMessage) {
+      console.log('Last WebSocket message:', lastMessage);
+    }
+  }, [wsConnected, lastMessage]);
 
   if (isLoading || !isAuthenticated || !user) {
     return (

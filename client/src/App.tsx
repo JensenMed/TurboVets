@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
 import Dashboard from "@/pages/dashboard";
+import WebSocketTest from "@/pages/websocket-test";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -33,6 +34,7 @@ function Router() {
           <Route path="/users" component={Landing} />
           <Route path="/reports" component={Landing} />
           <Route path="/settings" component={Landing} />
+          <Route path="/websocket-test" component={WebSocketTest} />
         </>
       ) : (
         <>
@@ -42,6 +44,7 @@ function Router() {
           <Route path="/users" component={Dashboard} />
           <Route path="/reports" component={Dashboard} />
           <Route path="/settings" component={Dashboard} />
+          <Route path="/websocket-test" component={WebSocketTest} />
         </>
       )}
       <Route component={NotFound} />
