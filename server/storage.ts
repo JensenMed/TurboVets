@@ -23,7 +23,7 @@ import { db } from "./db";
 import { eq, and, desc, ilike, or, count, lt } from "drizzle-orm";
 
 export interface IStorage {
-  // User operations (required for Replit Auth)
+  // User operations (required for OIDC Auth)
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
   
@@ -72,7 +72,7 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
-  // User operations (required for Replit Auth)
+  // User operations (required for OIDC Auth)
   async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
@@ -245,7 +245,27 @@ export class DatabaseStorage implements IStorage {
       search?: string;
     }
   ): Promise<TaskWithDetails[]> {
-    let query = db
+    let conditions = [eq(tasks.organizationId, organizationId)];
+
+    if (filters?.status) {
+      conditions.push(eq(tasks.status, filters.status as any));
+    }
+
+    if (filters?.assigneeId) {
+      conditions.push(eq(tasks.assigneeId, filters.assigneeId));
+    }
+
+    if (filters?.search) {
+      const searchCondition = or(
+        ilike(tasks.title, `%${filters.search}%`),
+        ilike(tasks.description, `%${filters.search}%`)
+      );
+      if (searchCondition) {
+        conditions.push(searchCondition);
+      }
+    }
+
+    const result = await db
       .select({
         id: tasks.id,
         title: tasks.title,
@@ -275,29 +295,9 @@ export class DatabaseStorage implements IStorage {
       })
       .from(tasks)
       .leftJoin(users, eq(tasks.assigneeId, users.id))
-      .where(eq(tasks.organizationId, organizationId));
-
-    let conditions = [eq(tasks.organizationId, organizationId)];
-
-    if (filters?.status) {
-      conditions.push(eq(tasks.status, filters.status as any));
-    }
-
-    if (filters?.assigneeId) {
-      conditions.push(eq(tasks.assigneeId, filters.assigneeId));
-    }
-
-    if (filters?.search) {
-      conditions.push(or(
-        ilike(tasks.title, `%${filters.search}%`),
-        ilike(tasks.description, `%${filters.search}%`)
-      ));
-    }
-
-    // Apply all conditions to the base query
-    query = query.where(conditions.length > 1 ? and(...conditions) : conditions[0]);
-
-    const result = await query.orderBy(desc(tasks.createdAt));
+      .where(conditions.length > 1 ? and(...conditions) : conditions[0])
+      .orderBy(desc(tasks.createdAt));
+      
     return result as TaskWithDetails[];
   }
 
@@ -366,8 +366,8 @@ export class DatabaseStorage implements IStorage {
 
     return result.map(row => ({
       ...row,
-      task: row.task.id ? row.task : undefined,
-      triggeredByUser: row.triggeredByUser.id ? row.triggeredByUser : undefined,
+      task: row.task && row.task.id ? row.task : undefined,
+      triggeredByUser: row.triggeredByUser && row.triggeredByUser.id ? row.triggeredByUser : undefined,
     })) as NotificationWithDetails[];
   }
 

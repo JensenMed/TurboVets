@@ -31,6 +31,7 @@ function Router() {
           <Route path="/dashboard" component={Landing} />
           <Route path="/tasks" component={Landing} />
           <Route path="/users" component={Landing} />
+          <Route path="/reports" component={Landing} />
           <Route path="/settings" component={Landing} />
         </>
       ) : (
@@ -39,6 +40,7 @@ function Router() {
           <Route path="/dashboard" component={Dashboard} />
           <Route path="/tasks" component={Dashboard} />
           <Route path="/users" component={Dashboard} />
+          <Route path="/reports" component={Dashboard} />
           <Route path="/settings" component={Dashboard} />
         </>
       )}

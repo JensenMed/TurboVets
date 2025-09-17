@@ -88,13 +88,13 @@ export default function TaskModal({ isOpen, onClose, task }: TaskModalProps) {
     },
   });
 
-  // Fetch users for assignee dropdown
+  // Fetch users for assignee dropdown  
   const { data: users = [] } = useQuery({
     queryKey: ['/api/users'],
-    queryFn: async () => {
+    queryFn: async (): Promise<User[]> => {
       const response = await fetch('/api/users');
       if (!response.ok) throw new Error('Failed to fetch users');
-      return response.json() as User[];
+      return response.json();
     },
   });
 
@@ -115,6 +115,7 @@ export default function TaskModal({ isOpen, onClose, task }: TaskModalProps) {
     mutationFn: async (data: TaskFormData) => {
       const payload = {
         ...data,
+        assigneeId: data.assigneeId || undefined, // Convert empty string to undefined
         dueDate: data.dueDate ? new Date(data.dueDate).toISOString() : undefined,
       };
       await apiRequest("POST", "/api/tasks", payload);
@@ -154,6 +155,7 @@ export default function TaskModal({ isOpen, onClose, task }: TaskModalProps) {
       if (!task?.id) throw new Error("No task ID");
       const payload = {
         ...data,
+        assigneeId: data.assigneeId || undefined, // Convert empty string to undefined
         dueDate: data.dueDate ? new Date(data.dueDate).toISOString() : undefined,
       };
       await apiRequest("PATCH", `/api/tasks/${task.id}`, payload);

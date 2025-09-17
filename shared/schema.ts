@@ -19,7 +19,7 @@ export const roleEnum = pgEnum('role', ['admin', 'manager', 'employee']);
 export const taskStatusEnum = pgEnum('task_status', ['todo', 'in_progress', 'done']);
 export const taskPriorityEnum = pgEnum('task_priority', ['low', 'medium', 'high', 'critical']);
 
-// Session storage table (required for Replit Auth)
+// Session storage table (required for OIDC Auth)
 export const sessions = pgTable(
   "sessions",
   {
@@ -38,7 +38,7 @@ export const organizations = pgTable("organizations", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// Users table (required for Replit Auth)
+// Users table (required for OIDC Auth)
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   email: varchar("email").unique(),

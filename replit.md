@@ -1,4 +1,4 @@
-# replit.md
+# project.md
 
 ## Overview
 
@@ -23,7 +23,7 @@ Preferred communication style: Simple, everyday language.
 - **Framework**: Express.js with TypeScript running on Node.js
 - **API Design**: RESTful API with middleware-based authentication and authorization
 - **Database ORM**: Drizzle ORM for type-safe database operations
-- **Authentication**: Replit OIDC integration with session-based auth using Passport.js
+- **Authentication**: OIDC integration with session-based auth using Passport.js
 - **Session Storage**: PostgreSQL-backed sessions using connect-pg-simple
 - **Role-Based Access Control**: Middleware functions for role and organization-based permissions
 
@@ -51,7 +51,7 @@ Preferred communication style: Simple, everyday language.
 
 ### Core Dependencies
 - **Database**: PostgreSQL via Neon serverless with connection pooling
-- **Authentication Provider**: Replit OIDC for user authentication
+- **Authentication Provider**: OIDC for user authentication
 - **UI Framework**: Radix UI primitives for accessible component foundation
 - **Validation**: Zod for schema validation across frontend and backend
 - **Date Handling**: date-fns for date manipulation and formatting
@@ -63,6 +63,6 @@ Preferred communication style: Simple, everyday language.
 - **Code Quality**: ESBuild for production bundling
 
 ### Deployment Configuration
-- **Environment Variables**: DATABASE_URL, SESSION_SECRET, REPL_ID, ISSUER_URL
+- **Environment Variables**: DATABASE_URL, SESSION_SECRET, CLIENT_ID, ISSUER_URL
 - **Production Build**: Separate client and server builds with static asset serving
 - **Development**: Hot reload with Vite dev server and TypeScript compilation

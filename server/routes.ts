@@ -190,11 +190,17 @@ export async function registerRoutes(app: Express): Promise<void> {
   app.post('/api/tasks', 
     isAuthenticated, 
     requireSameOrganization,
-    requireRole(['admin', 'manager']),
+    // Note: All organization members can create tasks (standard business logic)
     async (req: any, res) => {
       try {
-        const taskData = insertTaskSchema.parse({
+        // Convert empty or "unassigned" assigneeId to null for database consistency  
+        const requestData = {
           ...req.body,
+          assigneeId: (req.body.assigneeId && req.body.assigneeId !== "unassigned") ? req.body.assigneeId : null,
+        };
+        
+        const taskData = insertTaskSchema.parse({
+          ...requestData,
           creatorId: req.user.claims.sub,
           organizationId: req.organizationId,
         });
@@ -252,6 +258,11 @@ export async function registerRoutes(app: Express): Promise<void> {
           }
         }
 
+        // Convert empty or "unassigned" assigneeId to null for database consistency
+        if (updates.assigneeId !== undefined) {
+          updates.assigneeId = (updates.assigneeId && updates.assigneeId !== "unassigned") ? updates.assigneeId : null;
+        }
+
         // Critical security fix: Validate assignee organization if updating assigneeId
         if (updates.assigneeId && updates.assigneeId !== task.assigneeId) {
           const assignee = await storage.getUserById(updates.assigneeId);
@@ -261,10 +272,12 @@ export async function registerRoutes(app: Express): Promise<void> {
         }
 
         // Set completedAt server-side when status changes to done
-        if (updates.status === 'done' && task.status !== 'done') {
-          updates.completedAt = new Date();
-        } else if (updates.status !== 'done') {
-          updates.completedAt = null;
+        if ('status' in updates) {
+          if (updates.status === 'done' && task.status !== 'done') {
+            updates.completedAt = new Date();
+          } else if (updates.status !== 'done') {
+            updates.completedAt = null;
+          }
         }
 
         const updateData = updateTaskSchema.parse({

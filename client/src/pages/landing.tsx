@@ -71,10 +71,10 @@ export default function Landing() {
                 onClick={handleLogin}
                 variant="secondary"
                 className="mt-4 w-full"
-                data-testid="button-replit-auth"
+                data-testid="button-sso-auth"
               >
                 <i className="fas fa-code mr-2"></i>
-                Continue with Replit Auth
+                Continue with SSO
               </Button>
             </div>
             
