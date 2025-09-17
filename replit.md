@@ -63,6 +63,6 @@ Preferred communication style: Simple, everyday language.
 - **Code Quality**: ESBuild for production bundling
 
 ### Deployment Configuration
-- **Environment Variables**: DATABASE_URL, SESSION_SECRET, CLIENT_ID, ISSUER_URL
+- **Environment Variables**: DATABASE_URL, SESSION_SECRET, REPL_ID, ISSUER_URL, REPLIT_DOMAINS
 - **Production Build**: Separate client and server builds with static asset serving
 - **Development**: Hot reload with Vite dev server and TypeScript compilation

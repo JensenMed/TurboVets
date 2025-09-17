@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { setupAuth, isAuthenticated } from "./oidcAuth";
 import { insertTaskSchema, updateTaskSchema, insertTaskCommentSchema } from "@shared/schema";
 import { notificationService } from "./notification-service";
 import { z } from "zod";
