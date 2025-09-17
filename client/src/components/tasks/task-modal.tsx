@@ -322,7 +322,7 @@ export default function TaskModal({ isOpen, onClose, task }: TaskModalProps) {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="">Unassigned</SelectItem>
+                          <SelectItem value="unassigned">Unassigned</SelectItem>
                           {users.map((user) => (
                             <SelectItem key={user.id} value={user.id}>
                               {getDisplayName(user.firstName ?? undefined, user.lastName ?? undefined, user.email ?? undefined)}
@@ -374,7 +374,7 @@ export default function TaskModal({ isOpen, onClose, task }: TaskModalProps) {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="">No category</SelectItem>
+                          <SelectItem value="no-category">No category</SelectItem>
                           <SelectItem value="backend">Backend</SelectItem>
                           <SelectItem value="frontend">Frontend</SelectItem>
                           <SelectItem value="design">Design</SelectItem>

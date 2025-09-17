@@ -36,13 +36,13 @@ export default function TaskFilters({ filters, onFiltersChange, assignees }: Tas
       
       <Select
         value={filters.status}
-        onValueChange={(value) => onFiltersChange({ ...filters, status: value })}
+        onValueChange={(value) => onFiltersChange({ ...filters, status: value === 'all-status' ? '' : value })}
       >
         <SelectTrigger className="w-48" data-testid="select-status-filter">
           <SelectValue placeholder="All Status" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="">All Status</SelectItem>
+          <SelectItem value="all-status">All Status</SelectItem>
           <SelectItem value="todo">Todo</SelectItem>
           <SelectItem value="in_progress">In Progress</SelectItem>
           <SelectItem value="done">Done</SelectItem>
@@ -51,13 +51,13 @@ export default function TaskFilters({ filters, onFiltersChange, assignees }: Tas
       
       <Select
         value={filters.assigneeId}
-        onValueChange={(value) => onFiltersChange({ ...filters, assigneeId: value })}
+        onValueChange={(value) => onFiltersChange({ ...filters, assigneeId: value === 'all-assignees' ? '' : value })}
       >
         <SelectTrigger className="w-48" data-testid="select-assignee-filter">
           <SelectValue placeholder="All Assignees" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="">All Assignees</SelectItem>
+          <SelectItem value="all-assignees">All Assignees</SelectItem>
           {uniqueAssignees.map((assignee) => (
             <SelectItem key={assignee.id} value={assignee.id}>
               {`${assignee.firstName || ''} ${assignee.lastName || ''}`.trim() || assignee.email}
