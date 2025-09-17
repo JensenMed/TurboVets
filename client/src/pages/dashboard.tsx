@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
@@ -6,11 +6,13 @@ import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
 import TasksPage from "@/pages/tasks";
 import UsersPage from "@/pages/users";
+import OrganizationSetup from "@/components/organization/organization-setup";
 
 export default function Dashboard() {
   const { isAuthenticated, isLoading, user } = useAuth();
   const { toast } = useToast();
   const [location] = useLocation();
+  const [showOrganizationSetup, setShowOrganizationSetup] = useState(false);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -27,6 +29,13 @@ export default function Dashboard() {
     }
   }, [isAuthenticated, isLoading, toast]);
 
+  // Check if user needs organization setup
+  useEffect(() => {
+    if (user && !user.organizationId) {
+      setShowOrganizationSetup(true);
+    }
+  }, [user]);
+
   if (isLoading || !isAuthenticated || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -36,6 +45,11 @@ export default function Dashboard() {
         </div>
       </div>
     );
+  }
+
+  // Show organization setup if user has no organization
+  if (showOrganizationSetup) {
+    return <OrganizationSetup onComplete={() => setShowOrganizationSetup(false)} />;
   }
 
   const getCurrentPage = () => {
