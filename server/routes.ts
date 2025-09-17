@@ -90,9 +90,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const organization = await storage.createOrganization({ name });
       
-      // Update user to be admin of this organization
+      // Update user to be admin of this organization AND set their organizationId
       const userId = req.user.claims.sub;
       await storage.updateUserRole(userId, 'admin');
+      await storage.updateUserOrganization(userId, organization.id);
       
       res.json(organization);
     } catch (error) {
@@ -123,6 +124,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         if (!['admin', 'manager', 'employee'].includes(role)) {
           return res.status(400).json({ message: "Invalid role" });
+        }
+
+        // Critical security fix: Verify target user belongs to same organization
+        const targetUser = await storage.getUserById(userId);
+        if (!targetUser) {
+          return res.status(404).json({ message: "User not found" });
+        }
+        
+        if (targetUser.organizationId !== req.organizationId) {
+          return res.status(403).json({ message: "Cannot modify users from other organizations" });
         }
 
         const user = await storage.updateUserRole(userId, role);
@@ -188,6 +199,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           organizationId: req.organizationId,
         });
 
+        // Critical security fix: Validate assignee belongs to same organization
+        if (taskData.assigneeId) {
+          const assignee = await storage.getUserById(taskData.assigneeId);
+          if (!assignee || assignee.organizationId !== req.organizationId) {
+            return res.status(400).json({ message: "Assignee not found in your organization" });
+          }
+        }
+
         const task = await storage.createTask(taskData);
         res.json(task);
       } catch (error) {
@@ -223,8 +242,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(403).json({ message: "Cannot update this task" });
         }
 
+        // Critical security fix: Whitelist allowed fields and block dangerous ones
+        const allowedFields = ['title', 'description', 'status', 'priority', 'category', 'assigneeId', 'dueDate'];
+        const updates: any = {};
+        
+        for (const field of allowedFields) {
+          if (req.body[field] !== undefined) {
+            updates[field] = req.body[field];
+          }
+        }
+
+        // Critical security fix: Validate assignee organization if updating assigneeId
+        if (updates.assigneeId && updates.assigneeId !== task.assigneeId) {
+          const assignee = await storage.getUserById(updates.assigneeId);
+          if (!assignee || assignee.organizationId !== req.organizationId) {
+            return res.status(400).json({ message: "Assignee not found in your organization" });
+          }
+        }
+
+        // Set completedAt server-side when status changes to done
+        if (updates.status === 'done' && task.status !== 'done') {
+          updates.completedAt = new Date();
+        } else if (updates.status !== 'done') {
+          updates.completedAt = null;
+        }
+
         const updateData = updateTaskSchema.parse({
-          ...req.body,
+          ...updates,
           id: taskId,
         });
 

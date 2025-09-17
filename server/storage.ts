@@ -16,7 +16,7 @@ import {
   type UserWithOrganization,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, ilike, or, count } from "drizzle-orm";
+import { eq, and, desc, ilike, or, count, lt } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (required for Replit Auth)
@@ -28,8 +28,10 @@ export interface IStorage {
   getOrganization(id: string): Promise<Organization | undefined>;
   
   // User management
+  getUserById(userId: string): Promise<User | null>;
   getUsersInOrganization(organizationId: string): Promise<UserWithOrganization[]>;
   updateUserRole(userId: string, role: 'admin' | 'manager' | 'employee'): Promise<User>;
+  updateUserOrganization(userId: string, organizationId: string): Promise<User>;
   
   // Task operations
   createTask(task: InsertTask): Promise<Task>;
@@ -125,6 +127,24 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId))
       .returning();
     return user;
+  }
+
+  async updateUserOrganization(userId: string, organizationId: string): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({ organizationId, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
+    return user;
+  }
+
+  async getUserById(userId: string): Promise<User | null> {
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    return user || null;
   }
 
   // Task operations
@@ -301,8 +321,8 @@ export class DatabaseStorage implements IStorage {
       .from(tasks)
       .where(and(
         eq(tasks.organizationId, organizationId),
-        eq(tasks.dueDate, now), // This should be a proper date comparison
-        eq(tasks.status, 'todo')
+        lt(tasks.dueDate, now), // Fixed: use lt() for proper date comparison
+        or(eq(tasks.status, 'todo'), eq(tasks.status, 'in_progress')) // Fixed: include in_progress tasks
       ));
 
     return {
