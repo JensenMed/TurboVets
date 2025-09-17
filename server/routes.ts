@@ -306,6 +306,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
+  // Reorder task (for drag-and-drop)
+  app.patch('/api/tasks/:taskId/reorder',
+    isAuthenticated,
+    requireSameOrganization,
+    async (req: any, res) => {
+      try {
+        const { taskId } = req.params;
+        
+        // Validate request body with proper schema
+        const reorderSchema = z.object({
+          position: z.string().min(1, "Position is required"),
+          status: z.enum(['todo', 'in_progress', 'done']).optional(),
+        });
+        
+        const { position, status } = reorderSchema.parse(req.body);
+
+        const task = await storage.getTask(taskId);
+        if (!task || task.organizationId !== req.organizationId) {
+          return res.status(404).json({ message: "Task not found" });
+        }
+
+        // Check if user can reorder this task
+        const user = req.currentUser;
+        const canReorder = user.role === 'admin' || 
+                          user.role === 'manager' || 
+                          task.assigneeId === user.id ||
+                          task.creatorId === user.id;
+
+        if (!canReorder) {
+          return res.status(403).json({ message: "Cannot reorder this task" });
+        }
+
+        const updatedTask = await storage.reorderTask(taskId, position, status);
+        res.json(updatedTask);
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          return res.status(400).json({ 
+            message: "Invalid request data", 
+            errors: error.errors 
+          });
+        }
+        console.error("Error reordering task:", error);
+        res.status(500).json({ message: "Failed to reorder task" });
+      }
+    }
+  );
+
   // Task comments routes
   app.get('/api/tasks/:taskId/comments', 
     isAuthenticated, 

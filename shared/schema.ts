@@ -60,6 +60,7 @@ export const tasks = pgTable("tasks", {
   status: taskStatusEnum("status").default('todo').notNull(),
   priority: taskPriorityEnum("priority").default('medium').notNull(),
   category: varchar("category", { length: 100 }),
+  position: text("position").notNull().default('a0'), // Position for drag-and-drop ordering
   assigneeId: varchar("assignee_id").references(() => users.id),
   creatorId: varchar("creator_id").references(() => users.id).notNull(),
   organizationId: uuid("organization_id").references(() => organizations.id).notNull(),

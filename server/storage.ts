@@ -43,6 +43,7 @@ export interface IStorage {
     assigneeId?: string;
     search?: string;
   }): Promise<TaskWithDetails[]>;
+  reorderTask(taskId: string, newPosition: string, newStatus?: string): Promise<Task>;
   
   // Task comments
   addTaskComment(comment: InsertTaskComment): Promise<TaskComment>;
@@ -167,6 +168,25 @@ export class DatabaseStorage implements IStorage {
 
   async deleteTask(taskId: string): Promise<void> {
     await db.delete(tasks).where(eq(tasks.id, taskId));
+  }
+
+  async reorderTask(taskId: string, newPosition: string, newStatus?: string): Promise<Task> {
+    const updates: any = { position: newPosition, updatedAt: new Date() };
+    if (newStatus) {
+      updates.status = newStatus;
+      if (newStatus === 'done') {
+        updates.completedAt = new Date();
+      } else {
+        updates.completedAt = null;
+      }
+    }
+    
+    const [task] = await db
+      .update(tasks)
+      .set(updates)
+      .where(eq(tasks.id, taskId))
+      .returning();
+    return task;
   }
 
   async getTask(taskId: string): Promise<TaskWithDetails | undefined> {

@@ -1,15 +1,16 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Plus, Grid3X3, List } from "lucide-react";
+import { Plus, Grid3X3, List, Columns3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import TaskFilters from "@/components/tasks/task-filters";
 import TaskCard from "@/components/tasks/task-card";
 import TaskList from "@/components/tasks/task-list";
 import TaskModal from "@/components/tasks/task-modal";
+import KanbanBoard from "@/components/tasks/kanban-board";
 import type { TaskWithDetails } from "@shared/schema";
 
 export default function TasksPage() {
-  const [viewType, setViewType] = useState<'grid' | 'list'>('grid');
+  const [viewType, setViewType] = useState<'grid' | 'list' | 'kanban'>('grid');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedTask, setSelectedTask] = useState<TaskWithDetails | null>(null);
   const [filters, setFilters] = useState({
@@ -20,7 +21,7 @@ export default function TasksPage() {
 
   const { data: tasks = [], isLoading } = useQuery({
     queryKey: ['/api/tasks', filters],
-    queryFn: async () => {
+    queryFn: async (): Promise<TaskWithDetails[]> => {
       const params = new URLSearchParams();
       if (filters.status) params.append('status', filters.status);
       if (filters.assigneeId) params.append('assigneeId', filters.assigneeId);
@@ -28,7 +29,7 @@ export default function TasksPage() {
       
       const response = await fetch(`/api/tasks?${params}`);
       if (!response.ok) throw new Error('Failed to fetch tasks');
-      return response.json() as TaskWithDetails[];
+      return await response.json();
     },
   });
 
@@ -82,6 +83,14 @@ export default function TasksPage() {
             data-testid="button-list-view"
           >
             <List className="h-4 w-4" />
+          </Button>
+          <Button
+            variant={viewType === 'kanban' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setViewType('kanban')}
+            data-testid="button-kanban-view"
+          >
+            <Columns3 className="h-4 w-4" />
           </Button>
         </div>
       </div>
@@ -140,7 +149,9 @@ export default function TasksPage() {
       )}
 
       {/* Tasks */}
-      {viewType === 'grid' ? (
+      {viewType === 'kanban' ? (
+        <KanbanBoard tasks={tasks} onTaskClick={handleTaskClick} />
+      ) : viewType === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6" data-testid="tasks-grid">
           {tasks.map((task) => (
             <TaskCard
