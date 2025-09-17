@@ -1,6 +1,9 @@
 import express, { type Request, Response, NextFunction } from "express";
+import { createServer } from "http";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import WebSocketManager from "./websocket";
+import { notificationService } from "./notification-service";
 
 const app = express();
 app.use(express.json());
@@ -37,7 +40,15 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  const server = await registerRoutes(app);
+  // Create HTTP server for WebSocket support
+  const server = createServer(app);
+  
+  // Initialize WebSocket manager
+  const wsManager = new WebSocketManager(server);
+  notificationService.setWebSocketManager(wsManager);
+  
+  // Register routes with the Express app
+  await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

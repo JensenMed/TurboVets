@@ -1,8 +1,8 @@
 import type { Express } from "express";
-import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { insertTaskSchema, updateTaskSchema, insertTaskCommentSchema } from "@shared/schema";
+import { notificationService } from "./notification-service";
 import { z } from "zod";
 
 // Middleware to check user role
@@ -50,7 +50,7 @@ const requireSameOrganization = async (req: any, res: any, next: any) => {
   }
 };
 
-export async function registerRoutes(app: Express): Promise<Server> {
+export async function registerRoutes(app: Express): Promise<void> {
   // Auth middleware
   await setupAuth(app);
 
@@ -394,6 +394,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
 
         const comment = await storage.addTaskComment(commentData);
+        
+        // Trigger notification for task comment
+        await notificationService.notifyTaskComment(taskId, req.body.content, req.user.claims.sub, req.organizationId);
+        
         res.json(comment);
       } catch (error) {
         if (error instanceof z.ZodError) {
@@ -405,6 +409,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
-  const httpServer = createServer(app);
-  return httpServer;
+  // Notification routes
+  app.get('/api/notifications', isAuthenticated, requireSameOrganization, async (req: any, res) => {
+    try {
+      const notifications = await storage.getUserNotifications(req.user.claims.sub, req.organizationId);
+      res.json(notifications);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+      res.status(500).json({ message: "Failed to fetch notifications" });
+    }
+  });
+
+  app.get('/api/notifications/count', isAuthenticated, requireSameOrganization, async (req: any, res) => {
+    try {
+      const count = await storage.getUnreadNotificationCount(req.user.claims.sub, req.organizationId);
+      res.json({ count });
+    } catch (error) {
+      console.error("Error fetching notification count:", error);
+      res.status(500).json({ message: "Failed to fetch notification count" });
+    }
+  });
+
+  app.patch('/api/notifications/:notificationId/read', isAuthenticated, async (req: any, res) => {
+    try {
+      const { notificationId } = req.params;
+      await storage.markNotificationAsRead(notificationId, req.user.claims.sub);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+      res.status(500).json({ message: "Failed to mark notification as read" });
+    }
+  });
+
+  app.patch('/api/notifications/read-all', isAuthenticated, requireSameOrganization, async (req: any, res) => {
+    try {
+      await storage.markAllNotificationsAsRead(req.user.claims.sub, req.organizationId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error marking all notifications as read:", error);
+      res.status(500).json({ message: "Failed to mark all notifications as read" });
+    }
+  });
+
+  app.delete('/api/notifications/:notificationId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { notificationId } = req.params;
+      await storage.deleteNotification(notificationId, req.user.claims.sub);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting notification:", error);
+      res.status(500).json({ message: "Failed to delete notification" });
+    }
+  });
 }

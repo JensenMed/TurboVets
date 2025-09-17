@@ -79,6 +79,21 @@ export const taskComments = pgTable("task_comments", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Notifications table
+export const notifications = pgTable("notifications", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  type: varchar("type", { length: 50 }).notNull(), // 'task_assigned', 'task_status_changed', 'task_comment', 'mention'
+  title: varchar("title", { length: 255 }).notNull(),
+  message: text("message").notNull(),
+  isRead: boolean("is_read").default(false).notNull(),
+  taskId: uuid("task_id").references(() => tasks.id), // Optional - for task-related notifications
+  commentId: uuid("comment_id").references(() => taskComments.id), // Optional - for comment notifications
+  triggeredByUserId: varchar("triggered_by_user_id").references(() => users.id), // User who caused the notification
+  organizationId: uuid("organization_id").references(() => organizations.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Relations
 export const organizationsRelations = relations(organizations, ({ many }) => ({
   users: many(users),
@@ -113,7 +128,7 @@ export const tasksRelations = relations(tasks, ({ one, many }) => ({
   comments: many(taskComments),
 }));
 
-export const taskCommentsRelations = relations(taskComments, ({ one }) => ({
+export const taskCommentsRelations = relations(taskComments, ({ one, many }) => ({
   task: one(tasks, {
     fields: [taskComments.taskId],
     references: [tasks.id],
@@ -121,6 +136,30 @@ export const taskCommentsRelations = relations(taskComments, ({ one }) => ({
   user: one(users, {
     fields: [taskComments.userId],
     references: [users.id],
+  }),
+  notifications: many(notifications),
+}));
+
+export const notificationsRelations = relations(notifications, ({ one }) => ({
+  user: one(users, {
+    fields: [notifications.userId],
+    references: [users.id],
+  }),
+  task: one(tasks, {
+    fields: [notifications.taskId],
+    references: [tasks.id],
+  }),
+  comment: one(taskComments, {
+    fields: [notifications.commentId],
+    references: [taskComments.id],
+  }),
+  triggeredByUser: one(users, {
+    fields: [notifications.triggeredByUserId],
+    references: [users.id],
+  }),
+  organization: one(organizations, {
+    fields: [notifications.organizationId],
+    references: [organizations.id],
   }),
 }));
 
@@ -147,6 +186,11 @@ export const insertTaskCommentSchema = createInsertSchema(taskComments).omit({
   createdAt: true,
 });
 
+export const insertNotificationSchema = createInsertSchema(notifications).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -157,6 +201,8 @@ export type InsertTask = z.infer<typeof insertTaskSchema>;
 export type UpdateTask = z.infer<typeof updateTaskSchema>;
 export type TaskComment = typeof taskComments.$inferSelect;
 export type InsertTaskComment = z.infer<typeof insertTaskCommentSchema>;
+export type Notification = typeof notifications.$inferSelect;
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 
 // Extended types with relations
 export type TaskWithDetails = Task & {
@@ -167,4 +213,10 @@ export type TaskWithDetails = Task & {
 
 export type UserWithOrganization = User & {
   organization?: Organization;
+};
+
+export type NotificationWithDetails = Notification & {
+  task?: Task;
+  comment?: TaskComment;
+  triggeredByUser?: User;
 };

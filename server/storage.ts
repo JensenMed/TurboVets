@@ -3,6 +3,7 @@ import {
   organizations,
   tasks,
   taskComments,
+  notifications,
   type User,
   type UpsertUser,
   type Organization,
@@ -12,8 +13,11 @@ import {
   type UpdateTask,
   type TaskComment,
   type InsertTaskComment,
+  type Notification,
+  type InsertNotification,
   type TaskWithDetails,
   type UserWithOrganization,
+  type NotificationWithDetails,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, ilike, or, count, lt } from "drizzle-orm";
@@ -48,6 +52,14 @@ export interface IStorage {
   // Task comments
   addTaskComment(comment: InsertTaskComment): Promise<TaskComment>;
   getTaskComments(taskId: string): Promise<TaskComment[]>;
+
+  // Notifications
+  createNotification(notification: InsertNotification): Promise<Notification>;
+  getUserNotifications(userId: string, organizationId: string): Promise<NotificationWithDetails[]>;
+  markNotificationAsRead(notificationId: string, userId: string): Promise<void>;
+  markAllNotificationsAsRead(userId: string, organizationId: string): Promise<void>;
+  deleteNotification(notificationId: string, userId: string): Promise<void>;
+  getUnreadNotificationCount(userId: string, organizationId: string): Promise<number>;
   
   // Analytics
   getTaskStats(organizationId: string): Promise<{
@@ -304,6 +316,102 @@ export class DatabaseStorage implements IStorage {
       .from(taskComments)
       .where(eq(taskComments.taskId, taskId))
       .orderBy(desc(taskComments.createdAt));
+  }
+
+  // Notifications
+  async createNotification(notificationData: InsertNotification): Promise<Notification> {
+    const [notification] = await db
+      .insert(notifications)
+      .values(notificationData)
+      .returning();
+    return notification;
+  }
+
+  async getUserNotifications(userId: string, organizationId: string): Promise<NotificationWithDetails[]> {
+    const result = await db
+      .select({
+        id: notifications.id,
+        userId: notifications.userId,
+        type: notifications.type,
+        title: notifications.title,
+        message: notifications.message,
+        isRead: notifications.isRead,
+        taskId: notifications.taskId,
+        commentId: notifications.commentId,
+        triggeredByUserId: notifications.triggeredByUserId,
+        organizationId: notifications.organizationId,
+        createdAt: notifications.createdAt,
+        task: {
+          id: tasks.id,
+          title: tasks.title,
+          status: tasks.status,
+          priority: tasks.priority,
+        },
+        triggeredByUser: {
+          id: users.id,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          email: users.email,
+        }
+      })
+      .from(notifications)
+      .leftJoin(tasks, eq(notifications.taskId, tasks.id))
+      .leftJoin(users, eq(notifications.triggeredByUserId, users.id))
+      .where(and(
+        eq(notifications.userId, userId),
+        eq(notifications.organizationId, organizationId)
+      ))
+      .orderBy(desc(notifications.createdAt))
+      .limit(50); // Limit to last 50 notifications
+
+    return result.map(row => ({
+      ...row,
+      task: row.task.id ? row.task : undefined,
+      triggeredByUser: row.triggeredByUser.id ? row.triggeredByUser : undefined,
+    })) as NotificationWithDetails[];
+  }
+
+  async markNotificationAsRead(notificationId: string, userId: string): Promise<void> {
+    await db
+      .update(notifications)
+      .set({ isRead: true })
+      .where(and(
+        eq(notifications.id, notificationId),
+        eq(notifications.userId, userId)
+      ));
+  }
+
+  async markAllNotificationsAsRead(userId: string, organizationId: string): Promise<void> {
+    await db
+      .update(notifications)
+      .set({ isRead: true })
+      .where(and(
+        eq(notifications.userId, userId),
+        eq(notifications.organizationId, organizationId),
+        eq(notifications.isRead, false)
+      ));
+  }
+
+  async deleteNotification(notificationId: string, userId: string): Promise<void> {
+    await db
+      .delete(notifications)
+      .where(and(
+        eq(notifications.id, notificationId),
+        eq(notifications.userId, userId)
+      ));
+  }
+
+  async getUnreadNotificationCount(userId: string, organizationId: string): Promise<number> {
+    const [result] = await db
+      .select({ count: count() })
+      .from(notifications)
+      .where(and(
+        eq(notifications.userId, userId),
+        eq(notifications.organizationId, organizationId),
+        eq(notifications.isRead, false)
+      ));
+    
+    return result.count;
   }
 
   // Analytics
