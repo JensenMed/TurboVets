@@ -97,6 +97,37 @@
     box-shadow: 0 8px 25px -8px rgba(0, 0, 0, 0.1);
   }
 
+  /* Enhanced animations and polish */
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Smooth theme transitions */
+  * {
+    transition: color 0.2s ease-in-out, background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+  }
+
+  /* Enhanced button interactions */
+  .button-enhanced:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.1);
+  }
+  
+  .dark .button-enhanced:hover {
+    box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.3);
+  }
+
   .line-clamp-1 {
     overflow: hidden;
     display: -webkit-box;

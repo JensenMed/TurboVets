@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Plus, Bell, Menu } from "lucide-react";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import TaskModal from "@/components/tasks/task-modal";
 
 interface HeaderProps {
@@ -40,11 +41,13 @@ export default function Header({ currentPage }: HeaderProps) {
               <Button
                 onClick={() => setShowCreateModal(true)}
                 data-testid="button-new-task"
+                className="button-enhanced"
               >
                 <Plus className="h-4 w-4 mr-2" />
                 New Task
               </Button>
             )}
+            <ThemeToggle />
             <Button variant="ghost" size="sm" className="relative" data-testid="button-notifications">
               <Bell className="h-4 w-4" />
               <span className="absolute -top-1 -right-1 w-3 h-3 bg-destructive rounded-full"></span>
