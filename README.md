@@ -82,3 +82,70 @@ Preferred communication style: Simple, everyday language.
 - Added comprehensive logout functionality with proper session cleanup
 
 The application is production-ready with comprehensive security measures, scalable architecture, and a modern user experience optimized for task management workflows.
+
+## Running from Terminal
+
+### Prerequisites
+- Node.js 20 or higher
+- PostgreSQL 16
+- npm or yarn package manager
+
+### Setup Instructions
+
+1. **Clone the repository:**
+   ```bash
+   git clone <your-repo-url>
+   cd <your-repo-name>
+   ```
+
+2. **Install dependencies:**
+   ```bash
+   npm install
+   ```
+
+3. **Set up environment variables:**
+   Create a `.env` file in the root directory with the following variables:
+   ```bash
+   DATABASE_URL=postgresql://username:password@localhost:5432/your_database
+   SESSION_SECRET=your-secret-key-here
+   CLIENT_ID=your-oidc-client-id
+   ISSUER_URL=your-oidc-issuer-url
+   ALLOWED_DOMAINS=yourdomain.com
+   PORT=5000
+   ```
+
+4. **Set up the database:**
+   ```bash
+   npm run db:push
+   ```
+
+5. **Run the application:**
+
+   **Development mode (with hot reload):**
+   ```bash
+   npm run dev
+   ```
+
+   **Production build:**
+   ```bash
+   npm run build
+   npm run start
+   ```
+
+6. **Access the application:**
+   Open your browser and navigate to `http://localhost:5000`
+
+### Available Scripts
+
+- `npm run dev` - Start development server with hot reload
+- `npm run build` - Build the application for production
+- `npm run start` - Start production server
+- `npm run check` - Run TypeScript type checking
+- `npm run db:push` - Push database schema changes
+
+### Development Notes
+
+- The application runs on port 5000 by default
+- Frontend is built with Vite and served by the Express server
+- WebSocket connections are available for real-time features
+- Database migrations are handled automatically via Drizzle ORM
